@@ -22,6 +22,19 @@ NP1_POOL = [
     ("de studenten", "pl", "common"),
 ]
 
+NP2_POOL = [
+    # Animate — Variant A only
+    ("Jan",           "sg", "proper",  "animate"),
+    ("Marie",         "sg", "proper",  "animate"),
+    ("de kinderen",   "pl", "common",  "animate"),
+    ("de studenten",  "pl", "common",  "animate"),
+    # Inanimate — all variants valid
+    ("de trein",      "sg", "common",  "inanimate"),
+    ("de bal",        "sg", "common",  "inanimate"),
+    ("de auto",       "sg", "common",  "inanimate"),
+    ("het vliegtuig", "sg", "common",  "inanimate"),
+]
+
 # NP2 pool with compatible V2s pre-validated
 NP2_V2_COMPATIBILITY = {
     "de kinderen":   ["zwemmen", "lopen", "lachen", "huilen", "slapen",
@@ -46,6 +59,10 @@ NP2_V2_COMPATIBILITY = {
                        "springen"],
     "de studenten":  ["werken",  "lachen",  "lopen",    "zingen",
                        "fietsen"],
+    "de trein":      ["vertrekken",  "stoppen",  "stilstaan", "rijden", "wachten"],
+    "de bal":        ["rollen",  "stuiteren",  "vallen"],
+    "de auto":       ["vertrekken",  "stoppen",  "stilstaan", "rijden"],
+    "het vliegtuig": ["vertrekken",  "vliegen", "staan", "wachten"],
 }
 
 # V2 full list (for reference/validation)
