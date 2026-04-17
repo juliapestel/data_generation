@@ -1,6 +1,6 @@
 # CSD Minimal Pairs Dataset — Data Generation
 
-This repository contains the code used to generate a controlled minimal pairs dataset for studying cross-serial dependencies (CSD) in Dutch. The dataset is designed for mechanistic interpretability analysis of GPT-2 Dutch (Large).
+Template-based minimal pair generator with a feature-annotated controlled lexicon. This repository contains the code used to generate a controlled minimal pairs dataset for studying cross-serial dependencies (CSD) in Dutch. The dataset is designed for mechanistic interpretability analysis of GPT-2 Dutch (Large).
 
 ## Overview
 
@@ -10,7 +10,7 @@ The dataset consists of grammatical sentences and up to three ungrammatical vari
 |------|-------------|---------------|
 | 1 | `dat`-clause (verb-final subordinate) | 2, 3, 4 NP-verb pairs |
 | 2 | `omdat`-clause (verb-final subordinate) | 2, 3 NP-verb pairs |
-| 3 | AcI matrix clause (`hebben` + V1 + infinitive) | 2 NP-verb pairs |
+| 3 | AcI matrix clause (`hebben`) | 2 NP-verb pairs |
 
 Each grammatical sentence generates up to three minimal pair variants:
 - **A** (V_swap): verb order reversed, NP order intact
@@ -71,6 +71,8 @@ See `data/examples/` for manually constructed reference examples illustrating th
 - Type 3 uses the IPP (infinitivus pro participio) construction: V1 always appears in infinitive form.
 - NP2–V2 pairings are constrained by `NP2_V2_COMPATIBILITY` in `vocab.py` to ensure semantic plausibility.
 - Variant B (NP_swap) is suppressed when both NPs are animate and the same number, as the resulting sentence would be ambiguous rather than ungrammatical.
+- c_type: 1 = dat-clause, 2 = omdat-clause, 3 = AcI matrix
+- v_type: A = V_swap, B = NP_swap, C = full_reversal
 
 ## Validation
 
