@@ -31,7 +31,7 @@ Lexicon changes from previous version:
 
 # ---------------------------------------------------------------------------
 # V1 VERBS
-# Fields: (infinitive, present_3sg, past_3sg, past_participle, verb_class)
+# Fields: (infinitive, present_3sg, past_3sg, past_3pl, past_participle, verb_class)
 #
 # verb_class encodes the semantic/syntactic type of the matrix verb,
 # which determines construction type compatibility:
@@ -45,16 +45,16 @@ Lexicon changes from previous version:
 # ---------------------------------------------------------------------------
 
 V1_VERBS = [
-    # (infinitive, present_3sg, past_3sg, past_participle, verb_class)
+    # (infinitive, present_3sg, past_3sg, past_3pl, past_participle, verb_class)
     # Perception verbs — IPP applies in perfect
-    ("zien",   "ziet",   "zag",    "gezien",   "perception"),
-    ("horen",  "hoort",  "hoorde", "gehoord",  "perception"),
-    # ("voelen", "voelt",  "voelde", "gevoeld",  "perception"),
+    ("zien",   "ziet",   "zag",    "zagen",   "gezien",   "perception"),
+    ("horen",  "hoort",  "hoorde", "hoorden", "gehoord",  "perception"),
+    ("voelen", "voelt",  "voelde", "voelden", "gevoeld",  "perception"),
     # Benefactive verb — no IPP
-    ("helpen", "helpt",  "hielp",  "geholpen", "benefactive"),
+    ("helpen", "helpt",  "hielp",  "hielpen", "geholpen", "benefactive"),
     # Causative verb — IPP applies; past participle form is identical
     # to infinitive ("laten"), not "gelaten", in IPP contexts
-    ("laten",  "laat",   "liet",   "laten",    "causative"),
+    ("laten",  "laat",   "liet",   "lieten",  "laten",    "causative"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -125,9 +125,9 @@ NP2_POOL = [
     ("de vrouw",      "sg", "common", "animate"),
     # Inanimate — common nouns
     ("de trein",      "sg", "common", "inanimate"),
-    ("de bal",        "sg", "common", "inanimate"),
+    ("de scooter",    "sg", "common", "inanimate"),
     ("de auto",       "sg", "common", "inanimate"),
-    ("het vliegtuig", "sg", "common", "inanimate"),
+    ("de bus",        "sg", "common", "inanimate"),
     ("de fiets",      "sg", "common", "inanimate"),
     ("de boot",       "sg", "common", "inanimate"),
 ]
@@ -179,8 +179,7 @@ V2_VERBS = [
     # --- Inanimate-subject verbs ---
     # Motion
     ("rijden",     "inanimate", "motion"),
-    ("vliegen",    "inanimate", "motion"),
-    ("vallen",     "inanimate", "motion"),
+    ("bewegen",    "inanimate", "motion"),
     # Change-of-state
     ("vertrekken", "inanimate", "change_of_state"),
     ("stoppen",    "inanimate", "change_of_state"),
@@ -221,13 +220,30 @@ TYPE3_OBJ_V2_POOL = [
     ("de marathon",  "sg", ["lopen", "rennen", "zwemmen"]),
     ("de wedstrijd", "sg", ["lopen", "rennen", "zwemmen", "spelen"]),
     ("de sprint",    "sg", ["lopen", "rennen"]),
-    ("de baan",      "sg", ["zwemmen", "lopen"]),
-    ("het stuk",     "sg", ["spelen", "schrijven"]),
-    ("het liedje",   "sg", ["zingen", "spelen"]),
-    ("de honden",    "pl", ["uitlaten"]),
+    ("het stuk",     "sg", ["spelen", "schrijven", "creëren"]),
+    ("het liedje",   "sg", ["zingen", "spelen", "fluiten"]),
+    ("de honden",    "pl", ["uitlaten", "voeren"]),
     ("het boek",     "sg", ["lezen"]),
-    ("de opdracht",  "sg", ["maken", "schrijven"]),
+    ("de opdracht",  "sg", ["maken", "schrijven", "uitvoeren"]),
     ("de les",       "sg", ["volgen"]),
+]
+
+
+# ---------------------------------------------------------------------------
+# V2_CHAIN_VERBS — verbs that can occupy intermediate positions in a 3-NP+
+# chain (i.e. the V2 slot in NP1 NP2 NP3 V1 V2 V3). These take the preceding
+# NP as their logical subject and the following NP as their object/argument,
+# and embed a further infinitive complement. They are a subset of V1_VERBS.
+#
+# "voelen" is omitted: the constraint that NP2 (its subject) be the experiencer
+# and NP3 be inanimate makes 3-NP voelen chains semantically marginal.
+# ---------------------------------------------------------------------------
+
+V2_CHAIN_VERBS = [
+    ("zien",   "ziet",   "zag",    "zagen",   "gezien",   "perception"),
+    ("horen",  "hoort",  "hoorde", "hoorden", "gehoord",  "perception"),
+    ("helpen", "helpt",  "hielp",  "hielpen", "geholpen", "benefactive"),
+    ("laten",  "laat",   "liet",   "lieten",  "laten",    "causative"),
 ]
 
 
@@ -275,9 +291,9 @@ def get_compatible_obj_v2(v2_infinitive: str) -> list[tuple]:
 # ---------------------------------------------------------------------------
 
 TIME_ADVS = [
-    "deze ochtend",
-    "deze middag",
-    "deze avond",
+    "vanochtend",
+    "vanmiddag",
+    "vanavond",
     "afgelopen weekend",
     "vorig weekend",
     "afgelopen week",

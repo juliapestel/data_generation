@@ -65,11 +65,22 @@ def compute_logprob_fields(record: dict, model, tokenizer) -> dict:
     pass
 
 
+def _insert_v2_object(record: dict) -> dict:
+    """Return a copy of record with v2_object: null inserted after V2_class.
+    Used to normalise Type 1/2 records to the same flat schema as Type 3.
+    """
+    out = {}
+    for key, val in record.items():
+        out[key] = val
+        if key == "V2_class" and "v2_object" not in record:
+            out["v2_object"] = None
+    return out
+
+
 def merge_files(input_dir: Path) -> list[dict]:
     """Read all per-construction-type JSONL files from input_dir and return
     records in a stable order (sorted by pair_id)."""
     input_files = sorted(input_dir.glob("*.jsonl"))
-    # Exclude the examples subdirectory and any pre-existing merged output
     input_files = [
         f for f in input_files
         if f.stem not in {"csd_dataset"} and "examples" not in f.parts
@@ -82,6 +93,7 @@ def merge_files(input_dir: Path) -> list[dict]:
                 if line:
                     records.append(json.loads(line))
     records.sort(key=lambda r: r["pair_id"])
+    records = [_insert_v2_object(r) for r in records]
     return records
 
 
