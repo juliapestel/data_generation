@@ -81,8 +81,8 @@ class CSDGenerator(ABC):
           NP2 animate, same number       → False, None
           NP1 and NP2 have same form     → False, None  (sentences would be identical)
         """
-        np1_form, np1_number, _ = np1_entry
-        np2_form, np2_number, _, np2_animacy = np2_entry
+        np1_form, np1_number, *_ = np1_entry
+        np2_form, np2_number, _, np2_animacy, *__ = np2_entry
         if np1_form == np2_form:
             return False, None
         if np2_animacy == "inanimate":

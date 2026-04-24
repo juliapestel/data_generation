@@ -5,12 +5,13 @@ generators.py — Concrete CSD generator subclasses for Types 1, 2, and 3.
 import random
 
 from vocab import (
-    V1_VERBS, V2_CHAIN_VERBS, NP1_POOL, NP2_POOL,
+    V1_VERBS, V2_CHAIN_VERBS, V2_CHAIN_ALLOWED_AFTER, NP1_POOL, NP2_POOL,
     TYPE3_V2_VERBS, DAT_EMBEDDINGS, OMDAT_EMBEDDINGS, TIME_ADVS,
     get_compatible_v2s, get_v2s_by_class, get_compatible_obj_v2,
+    has_male_name_adjacency,
 )
 from generator_base import CSDGenerator
-
+ 
 
 class SubordinateGenerator(CSDGenerator):
     """Base generator for subordinate clause constructions (Types 1 and 2).
@@ -57,11 +58,18 @@ class SubordinateGenerator(CSDGenerator):
             pool = [t for t in NP2_POOL if t[0] != np1[0] and t[2] != np1[2]]
         return random.choice(pool)
 
-    def _sample_npN(self, np_chain: list) -> tuple:
+    def _sample_npN(self, np_chain: list, prev_v_lemma: str,
+                    animate_only: bool = False) -> tuple:
         """Return an NP entry for position 3+ (NP3, NP4, ...), excluding all
-        NP forms already present in the chain."""
+        NP forms already present in the chain.
+        When prev_v_lemma == "helpen" or animate_only=True, NP must be animate.
+        animate_only=True is used for 4-NP chains where all NPs must be animate.
+        """
         taken = {np[0] for np in np_chain}
-        pool  = [t for t in NP2_POOL if t[0] not in taken]
+        if prev_v_lemma == "helpen" or animate_only:
+            pool = [t for t in NP2_POOL if t[0] not in taken and t[3] == "animate"]
+        else:
+            pool = [t for t in NP2_POOL if t[0] not in taken]
         return random.choice(pool)
 
     def _sample_v_terminal(self, prev_v_lemma: str, np_i: tuple) -> tuple[str, str]:
@@ -75,11 +83,32 @@ class SubordinateGenerator(CSDGenerator):
             entry = random.choice(get_compatible_v2s(np_i[3]))
         return (entry[0], entry[2])
 
-    def _sample_v_chain(self, np_i: tuple) -> tuple[str, str]:
+    def _sample_v_chain(self, np_i: tuple, prev_v_class: str,
+                        chain_lemmas: list[str]) -> tuple[str, str]:
         """Return (infinitive, class) for an intermediate chain verb (from V2_CHAIN_VERBS).
         np_i must be animate — enforced upstream by _sample_np2/npN.
+        prev_v_class:  verb class of the immediately preceding verb; used to enforce
+                       V2_CHAIN_ALLOWED_AFTER transition rules.
+        chain_lemmas:  list of all verb lemmas already committed to the chain,
+                       including V1 and any previously sampled chain verbs. Any
+                       candidate whose infinitive appears in this list is excluded,
+                       preventing same-lemma repetition at any chain distance.
+                       For non-V1 slots, surface form equals lemma (all are infinitives).
+        Raises ValueError if prev_v_class has no permitted chain continuations.
+        Raises IndexError (via random.choice) if the pool is empty after filtering;
+        callers should catch this and skip the item.
         """
-        entry = random.choice(V2_CHAIN_VERBS)
+        allowed_classes = V2_CHAIN_ALLOWED_AFTER.get(prev_v_class, [])
+        if not allowed_classes:
+            raise ValueError(
+                f"No permitted chain verb class after '{prev_v_class}' "
+                f"under current V2_CHAIN_ALLOWED_AFTER constraints."
+            )
+        pool = [
+            e for e in V2_CHAIN_VERBS
+            if e[5] in allowed_classes and e[0] not in chain_lemmas
+        ]
+        entry = random.choice(pool)  # raises IndexError if pool is empty
         return (entry[0], entry[5])
 
     # ------------------------------------------------------------------
@@ -89,7 +118,15 @@ class SubordinateGenerator(CSDGenerator):
     def generate_item(self, n_pairs: int, item_num: int):
         embed    = random.choice(self.embedding_pool)
         tense    = random.choices(["present", "past"], weights=[65, 35])[0]
-        np1      = random.choice(NP1_POOL)
+        # For 3-NP+, bias toward plural NP1 to increase the proportion of items
+        # where an agreement violation (number mismatch) is available for Variant B/C.
+        # Plural NP1 entries are weighted 3x relative to singular entries.
+        # This does not guarantee B/C generation but substantially increases coverage.
+        if n_pairs > 2:
+            np1_weights = [3 if np[1] == "pl" else 1 for np in NP1_POOL]
+            np1 = random.choices(NP1_POOL, weights=np1_weights, k=1)[0]
+        else:
+            np1 = random.choice(NP1_POOL)
         v1_tuple = random.choices(self._verbs, weights=self._weights)[0]
         v1       = self.pick_v1_form(v1_tuple, tense, np1[1])
 
@@ -97,28 +134,45 @@ class SubordinateGenerator(CSDGenerator):
         # v_chain entries: (v1_entry_or_None, surface_form, verb_class)
         # For i < n_pairs-1 (intermediate): verb is a chain verb from V2_CHAIN_VERBS.
         # For i == n_pairs-1 (final):       verb is a terminal verb from V2_VERBS.
+        # voelen as V1 is blocked for 3-NP+: perception via touch is implausible
+        # in causative-embedding contexts.
+        if n_pairs > 2 and v1_tuple[0] == "voelen":
+            return
+
         np_chain = [np1]
         v_chain  = [(v1_tuple, v1[1], v1_tuple[5])]
 
         for i in range(1, n_pairs):
-            is_last = (i == n_pairs - 1)
+            is_last     = (i == n_pairs - 1)
+            prev_lemma  = v_chain[i - 1][1] if i > 1 else v1[0]
+            prev_class  = v_chain[i - 1][2] if i > 1 else v1_tuple[5]
 
             if i == 1:
                 np_i = self._sample_np2(v1[0], np1, chain_continues=not is_last)
-                if is_last:
-                    v_raw = self._sample_v_terminal(v1[0], np_i)
-                else:
-                    v_raw = self._sample_v_chain(np_i)
             else:
-                np_i      = self._sample_npN(np_chain)
-                prev_lemma = v_chain[i - 1][1]  # infinitive == lemma for non-V1 slots
-                if is_last:
-                    v_raw = self._sample_v_terminal(prev_lemma, np_i)
-                else:
-                    v_raw = self._sample_v_chain(np_i)
+                np_i = self._sample_npN(np_chain, prev_lemma)
+
+            if is_last:
+                v_raw = self._sample_v_terminal(prev_lemma, np_i)
+            else:
+                # Skip items whose V1 class has no permitted chain continuation
+                # (e.g. benefactive V1 under current V2_CHAIN_ALLOWED_AFTER).
+                # IndexError covers the edge case of an empty pool after filtering.
+                # For non-V1 slots, surface form equals lemma (all are infinitives).
+                chain_lemmas = [
+                    e[0][0] if e[0] is not None else e[1]
+                    for e in v_chain
+                ]
+                try:
+                    v_raw = self._sample_v_chain(np_i, prev_class, chain_lemmas)
+                except (ValueError, IndexError):
+                    return
 
             np_chain.append(np_i)
             v_chain.append((None, v_raw[0], v_raw[1]))
+
+        if has_male_name_adjacency(np_chain):
+            return
 
         np_forms = [np[0] for np in np_chain]
         v_forms  = [v[1]  for v  in v_chain]
@@ -137,7 +191,38 @@ class SubordinateGenerator(CSDGenerator):
                                 ungram_source="verb_order", alignment=False,
                                 crit_tokens=v_forms)
 
+        if n_pairs == 3:
+            # Variants D1 and D2: partial verb permutations for 3-NP chains.
+            # Each targets a different pair of adjacent verbs, allowing
+            # independent probing of innermost vs. outermost dependency pairs.
+
+            # Variant D1: V1V3V2 — swap final two verbs.
+            # Preserves NP1-V1 alignment. Disrupts NP2-V2 and NP3-V3.
+            v_forms_d1 = [v_forms[0], v_forms[2], v_forms[1]]
+            ungram_d1 = f"{embed} {' '.join(np_forms)} {' '.join(v_forms_d1)}."
+            yield self.build_record(f"{base_id}_D1", **shared,
+                                    v_type="D1", ungrammatical=ungram_d1,
+                                    ungram_source="verb_order_partial", alignment=False,
+                                    crit_tokens=[v_forms[1], v_forms[2]],
+                                    notes="Partial verb permutation V1V3V2: final two verbs swapped. "
+                                          "NP1-V1 alignment preserved. NP2-V2 and NP3-V3 disrupted. "
+                                          "Use to probe sensitivity to innermost dependency pair.")
+
+            # Variant D2: V2V1V3 — swap first two verbs.
+            # Preserves NP3-V3 alignment. Disrupts NP1-V1 and NP2-V2.
+            v_forms_d2 = [v_forms[1], v_forms[0], v_forms[2]]
+            ungram_d2 = f"{embed} {' '.join(np_forms)} {' '.join(v_forms_d2)}."
+            yield self.build_record(f"{base_id}_D2", **shared,
+                                    v_type="D2", ungrammatical=ungram_d2,
+                                    ungram_source="verb_order_partial", alignment=False,
+                                    crit_tokens=[v_forms[0], v_forms[1]],
+                                    notes="Partial verb permutation V2V1V3: first two verbs swapped. "
+                                          "NP3-V3 alignment preserved. NP1-V1 and NP2-V2 disrupted. "
+                                          "Use to probe sensitivity to outermost dependency pair.")
+
         can_b, ungram_source = self.can_generate_np_swap(np1, np_chain[1])
+        if can_b and has_male_name_adjacency(list(reversed(np_chain))):
+            can_b = False
         if can_b:
             ungram_b = f"{embed} {' '.join(reversed(np_forms))} {' '.join(v_forms)}."
             ungram_c = f"{embed} {' '.join(reversed(np_forms))} {' '.join(reversed(v_forms))}."
@@ -154,7 +239,16 @@ class SubordinateGenerator(CSDGenerator):
 
 
 class Type1Generator(SubordinateGenerator):
-    """Type 1 (dat-clause) generator."""
+    """Type 1 (dat-clause) generator.
+
+    For 3-NP chains, valid V1→V2_chain class transitions under
+    V2_CHAIN_ALLOWED_AFTER are:
+      perception → causative  (e.g. zag laten … terminal)
+      causative  → perception (e.g. liet zien … terminal)
+    helpen (benefactive) as V1 has no permitted chain continuation and will
+    always be skipped for n_pairs > 2; only 2-NP items will be generated for
+    helpen in this type.
+    """
     c_type         = 1
     embedding_pool = DAT_EMBEDDINGS
     v1_pool        = V1_VERBS
@@ -162,11 +256,160 @@ class Type1Generator(SubordinateGenerator):
 
 
 class Type2Generator(SubordinateGenerator):
-    """Type 2 (omdat-clause) generator. laten excluded (causative, Type 1 only)."""
+    """Type 2 (omdat-clause) generator. laten excluded (causative, Type 1 only).
+
+    For 3-NP chains, laten is not in v1_pool, and helpen (benefactive) has no
+    permitted chain continuation under V2_CHAIN_ALLOWED_AFTER. Only perception
+    V1 verbs (zien, horen, voelen) produce valid 3-NP chains, yielding sequences
+    of the form: perception → causative → terminal.
+    helpen as V1 will always be skipped for n_pairs > 2.
+    """
     c_type         = 2
     embedding_pool = OMDAT_EMBEDDINGS
     v1_pool        = V1_VERBS[:-1]
     v1_fractions   = {"zien": 0.32, "horen": 0.24, "voelen": 0.20, "helpen": 0.24}
+
+
+class Type1Generator4NP(SubordinateGenerator):
+    """Type 1 (dat-clause) generator for 4-NP chains.
+
+    The only viable 4-NP class sequence is:
+        perception → causative → perception → terminal (animate)
+    Causative → perception → causative is blocked in practice because only one
+    causative chain verb exists (laten) and same-lemma repetition is forbidden.
+    V1 is therefore restricted to perception verbs (zien, horen); voelen is
+    excluded because the voelen-embedding context is implausible in a 4-verb chain.
+
+    Generates Variant A (full reversal) and Variants D1, D2, D3 (partial
+    permutations) for every item. Variants B and C are not generated: all NPs
+    must be animate, so inanimate-driven selectional restriction is unavailable,
+    and thematic role reversal across four animate NPs produces uninterpretable
+    stimuli.
+    """
+    c_type         = 1
+    embedding_pool = DAT_EMBEDDINGS
+    v1_pool        = [v for v in V1_VERBS if v[0] in ("zien", "horen")]
+    v1_fractions   = {"zien": 0.50, "horen": 0.50}
+
+    def generate_item(self, n_pairs: int, item_num: int):
+        if n_pairs != 4:
+            raise NotImplementedError(
+                f"Type1Generator4NP only supports n_pairs=4, got {n_pairs}."
+            )
+
+        embed    = random.choice(self.embedding_pool)
+        tense    = random.choices(["present", "past"], weights=[65, 35])[0]
+        np1_weights = [3 if np[1] == "pl" else 1 for np in NP1_POOL]
+        np1      = random.choices(NP1_POOL, weights=np1_weights, k=1)[0]
+        v1_tuple = random.choices(self._verbs, weights=self._weights)[0]
+        v1       = self.pick_v1_form(v1_tuple, tense, np1[1])
+
+        # Enforce perception-only V1 explicitly; redundant given restricted pool
+        # but makes the structural constraint visible.
+        if v1_tuple[5] != "perception" or v1_tuple[0] == "voelen":
+            return
+
+        np_chain = [np1]
+        v_chain  = [(v1_tuple, v1[1], v1_tuple[5])]
+
+        for i in range(1, 4):
+            is_last    = (i == 3)
+            prev_lemma = v_chain[i - 1][1] if i > 1 else v1[0]
+            prev_class = v_chain[i - 1][2] if i > 1 else v1_tuple[5]
+
+            # All NPs in a 4-NP chain must be animate: every NP is the logical
+            # subject of the next verb, and the terminal verb requires an animate
+            # subject. Use animate_only=True for all non-NP1 positions.
+            if i == 1:
+                np_i = self._sample_np2(v1[0], np1, chain_continues=True)
+            else:
+                np_i = self._sample_npN(np_chain, prev_lemma, animate_only=True)
+
+            if is_last:
+                v_raw = self._sample_v_terminal(prev_lemma, np_i)
+            else:
+                # For non-V1 slots, surface form equals lemma (all are infinitives).
+                chain_lemmas = [
+                    e[0][0] if e[0] is not None else e[1]
+                    for e in v_chain
+                ]
+                try:
+                    v_raw = self._sample_v_chain(np_i, prev_class, chain_lemmas)
+                except (ValueError, IndexError):
+                    return
+                # Block voelen in any intermediate (chain) position. voelen is not
+                # currently in V2_CHAIN_VERBS so this never fires, but the check
+                # makes the constraint explicit for future vocabulary changes.
+                if v_raw[0] == "voelen":
+                    return
+
+            np_chain.append(np_i)
+            v_chain.append((None, v_raw[0], v_raw[1]))
+
+        if has_male_name_adjacency(np_chain):
+            return
+
+        # Naturalness constraint (not a grammaticality constraint): at least one
+        # of NP2, NP3, NP4 must be a common noun. Four proper names in a row
+        # produce unnatural stimuli in Dutch.
+        if all(np[2] == "proper" for np in np_chain[1:]):
+            return
+
+        np_forms = [np[0] for np in np_chain]
+        v_forms  = [v[1]  for v  in v_chain]
+        base_id  = f"4np_t{self.c_type}_{item_num:03d}"
+        gram     = f"{embed} {' '.join(np_forms)} {' '.join(v_forms)}."
+        ungram_a = f"{embed} {' '.join(np_forms)} {' '.join(reversed(v_forms))}."
+
+        shared = dict(
+            n_pairs=4, c_type=self.c_type, grammatical=gram,
+            embed=embed, np_chain=np_chain, v_chain=v_chain,
+            v1_tense=tense, source="generated",
+        )
+
+        yield self.build_record(f"{base_id}_A", **shared,
+                                v_type="A", ungrammatical=ungram_a,
+                                ungram_source="verb_order", alignment=False,
+                                crit_tokens=v_forms)
+
+        # Variant D1: V1V2V4V3 — swap final pair.
+        # Preserves NP1-V1 and NP2-V2 alignment. Disrupts NP3-V3 and NP4-V4.
+        v_forms_d1 = [v_forms[0], v_forms[1], v_forms[3], v_forms[2]]
+        ungram_d1  = f"{embed} {' '.join(np_forms)} {' '.join(v_forms_d1)}."
+        yield self.build_record(f"{base_id}_D1", **shared,
+                                v_type="D1", ungrammatical=ungram_d1,
+                                ungram_source="verb_order_partial", alignment=False,
+                                crit_tokens=[v_forms[2], v_forms[3]],
+                                notes="Partial verb permutation V1V2V4V3: final pair swapped. "
+                                      "NP1-V1 and NP2-V2 preserved. NP3-V3 and NP4-V4 disrupted.")
+
+        # Variant D2: V1V3V2V4 — swap middle pair.
+        # Preserves NP1-V1 and NP4-V4 alignment. Disrupts NP2-V2 and NP3-V3.
+        v_forms_d2 = [v_forms[0], v_forms[2], v_forms[1], v_forms[3]]
+        ungram_d2  = f"{embed} {' '.join(np_forms)} {' '.join(v_forms_d2)}."
+        yield self.build_record(f"{base_id}_D2", **shared,
+                                v_type="D2", ungrammatical=ungram_d2,
+                                ungram_source="verb_order_partial", alignment=False,
+                                crit_tokens=[v_forms[1], v_forms[2]],
+                                notes="Partial verb permutation V1V3V2V4: middle pair swapped. "
+                                      "NP1-V1 and NP4-V4 preserved. NP2-V2 and NP3-V3 disrupted.")
+
+        # Variant D3: V2V1V3V4 — swap first pair.
+        # Preserves NP3-V3 and NP4-V4 alignment. Disrupts NP1-V1 and NP2-V2.
+        # Note: V1 is finite in the grammatical sentence; placing it in V2 position
+        # (where an infinitive is expected) creates a morphosyntactic confound.
+        # Flag in analysis: the anomaly is partly morphological, not purely word-order.
+        v_forms_d3 = [v_forms[1], v_forms[0], v_forms[2], v_forms[3]]
+        ungram_d3  = f"{embed} {' '.join(np_forms)} {' '.join(v_forms_d3)}."
+        yield self.build_record(f"{base_id}_D3", **shared,
+                                v_type="D3", ungrammatical=ungram_d3,
+                                ungram_source="verb_order_partial", alignment=False,
+                                crit_tokens=[v_forms[0], v_forms[1]],
+                                notes="Partial verb permutation V2V1V3V4: first pair swapped. "
+                                      "NP3-V3 and NP4-V4 preserved. NP1-V1 and NP2-V2 disrupted. "
+                                      "Confound: V1 is finite; in D3 it appears where an infinitive "
+                                      "is expected, adding a morphosyntactic anomaly alongside the "
+                                      "word-order violation. Note this in analysis.")
 
 
 class Type3Generator(CSDGenerator):

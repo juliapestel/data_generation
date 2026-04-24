@@ -69,31 +69,32 @@ V1_VERBS = [
 # ---------------------------------------------------------------------------
 
 NP1_POOL = [
-    # (form, number, noun_type)
+    # (form, number, noun_type, gender)
+    # gender: "m" | "f" | None  (None for all common nouns)
     # Proper names — singular
-    ("Jan",          "sg", "proper"),
-    ("Marie",        "sg", "proper"),
-    ("Piet",         "sg", "proper"),
-    ("Els",          "sg", "proper"),
+    ("Jan",          "sg", "proper", "m"),
+    ("Marie",        "sg", "proper", "f"),
+    ("Piet",         "sg", "proper", "m"),
+    ("Els",          "sg", "proper", "f"),
     # Common nouns — singular
-    ("de leraar",    "sg", "common"),
-    ("de moeder",    "sg", "common"),
-    ("de danser",    "sg", "common"),
-    ("de agent",     "sg", "common"),
-    ("de dokter",    "sg", "common"),
-    ("de rechter",   "sg", "common"),
-    ("de vader",     "sg", "common"),
-    ("de directeur", "sg", "common"),
+    ("de leraar",    "sg", "common", None),
+    ("de moeder",    "sg", "common", None),
+    ("de danser",    "sg", "common", None),
+    ("de agent",     "sg", "common", None),
+    ("de dokter",    "sg", "common", None),
+    ("de rechter",   "sg", "common", None),
+    ("de vader",     "sg", "common", None),
+    ("de directeur", "sg", "common", None),
     # Common nouns — plural
-    ("de kinderen",  "pl", "common"),
-    ("de studenten", "pl", "common"),
-    ("de ouders",    "pl", "common"),
-    ("de vrienden",  "pl", "common"),
+    ("de kinderen",  "pl", "common", None),
+    ("de studenten", "pl", "common", None),
+    ("de ouders",    "pl", "common", None),
+    ("de vrienden",  "pl", "common", None),
 ]
 
 # ---------------------------------------------------------------------------
 # NP2 POOL
-# Fields: (form, number, noun_type, animacy)
+# Fields: (form, number, noun_type, animacy, gender)
 #
 # NP2 is the second argument in the chain: the object of V1 and the
 # logical subject of V2. Animacy determines which V2 verbs are
@@ -111,25 +112,26 @@ NP1_POOL = [
 # ---------------------------------------------------------------------------
 
 NP2_POOL = [
-    # (form, number, noun_type, animacy)
+    # (form, number, noun_type, animacy, gender)
+    # gender: "m" | "f" | None  (None for all common and inanimate nouns)
     # Animate — proper names
-    ("Jan",           "sg", "proper", "animate"),
-    ("Marie",         "sg", "proper", "animate"),
-    ("Piet",          "sg", "proper", "animate"),
+    ("Jan",           "sg", "proper", "animate", "m"),
+    ("Marie",         "sg", "proper", "animate", "f"),
+    ("Piet",          "sg", "proper", "animate", "m"),
     # Animate — common nouns
-    ("de kinderen",   "pl", "common", "animate"),
-    ("de studenten",  "pl", "common", "animate"),
-    ("de leraren",    "pl", "common", "animate"),
-    ("de ouders",     "pl", "common", "animate"),
-    ("de man",        "sg", "common", "animate"),
-    ("de vrouw",      "sg", "common", "animate"),
+    ("de kinderen",   "pl", "common", "animate", None),
+    ("de studenten",  "pl", "common", "animate", None),
+    ("de leraren",    "pl", "common", "animate", None),
+    ("de ouders",     "pl", "common", "animate", None),
+    ("de man",        "sg", "common", "animate", None),
+    ("de vrouw",      "sg", "common", "animate", None),
     # Inanimate — common nouns
-    ("de trein",      "sg", "common", "inanimate"),
-    ("de scooter",    "sg", "common", "inanimate"),
-    ("de auto",       "sg", "common", "inanimate"),
-    ("de bus",        "sg", "common", "inanimate"),
-    ("de fiets",      "sg", "common", "inanimate"),
-    ("de boot",       "sg", "common", "inanimate"),
+    ("de trein",      "sg", "common", "inanimate", None),
+    ("de scooter",    "sg", "common", "inanimate", None),
+    ("de auto",       "sg", "common", "inanimate", None),
+    ("de bus",        "sg", "common", "inanimate", None),
+    ("de fiets",      "sg", "common", "inanimate", None),
+    ("de boot",       "sg", "common", "inanimate", None),
 ]
 
 # ---------------------------------------------------------------------------
@@ -244,7 +246,37 @@ V2_CHAIN_VERBS = [
     ("horen",  "hoort",  "hoorde", "hoorden", "gehoord",  "perception"),
     ("helpen", "helpt",  "hielp",  "hielpen", "geholpen", "benefactive"),
     ("laten",  "laat",   "liet",   "lieten",  "laten",    "causative"),
+    # laten is included here because it is the only causative chain verb,
+    # required for the perception → causative transition. Stacked causatives
+    # (liet laten) are prevented by the same-lemma filter in _sample_v_chain,
+    # and causative → causative is blocked by V2_CHAIN_ALLOWED_AFTER.
 ]
+
+# ---------------------------------------------------------------------------
+# V2_CHAIN_ALLOWED_AFTER — permitted verb-class transitions for intermediate
+# (non-terminal) chain verbs in 3-NP+ constructions.
+#
+# Each verb in the cluster takes the following verb as its complement, so
+# semantic scope is strictly right-to-left. Constraints:
+#   perception → perception : blocked (stacked perception is unnatural)
+#   perception → benefactive: blocked (horen helpen is unnatural)
+#   perception → causative  : allowed (zag laten)
+#   benefactive→ perception : blocked for now (low naturalness)
+#   benefactive→ causative  : blocked (marginal)
+#   causative  → perception : allowed (liet zien, liet horen)
+#   causative  → benefactive: blocked (marginal)
+#   causative  → causative  : blocked (stacked causatives degraded)
+#
+# Only two transitions are currently permitted:
+#   perception → causative
+#   causative  → perception
+# ---------------------------------------------------------------------------
+
+V2_CHAIN_ALLOWED_AFTER = {
+    "perception":  ["causative"],
+    "causative":   ["perception"],
+    "benefactive": [],  # benefactive cannot appear as V1 in a 3-NP chain under current constraints
+}
 
 
 # ---------------------------------------------------------------------------
@@ -284,6 +316,25 @@ def get_compatible_obj_v2(v2_infinitive: str) -> list[tuple]:
         (form, number) for form, number, compatible in TYPE3_OBJ_V2_POOL
         if v2_infinitive in compatible
     ]
+
+
+def has_male_name_adjacency(np_sequence: list[tuple]) -> bool:
+    """
+    Return True if any two adjacent NPs in the sequence are both proper names
+    with gender == "m". Such adjacencies are blocked because Dutch male name
+    pairs (e.g. Piet Jan, Jan Piet) can be misread as hyphenated double-barrelled
+    names, introducing a parsing ambiguity in the stimulus.
+
+    np_sequence: ordered list of NP tuples from NP1_POOL or NP2_POOL.
+    Gender is at index 4 for NP2_POOL entries and index 3 for NP1_POOL entries.
+    To handle both, access gender as the last element of the tuple.
+    """
+    for i in range(len(np_sequence) - 1):
+        g1 = np_sequence[i][-1]
+        g2 = np_sequence[i + 1][-1]
+        if g1 == "m" and g2 == "m":
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------
