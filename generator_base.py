@@ -140,7 +140,7 @@ class CSDGenerator(ABC):
             record[f"V{i}_class"] = v_cls
 
         if c_type == 3:
-            record["v2_object"] = v2_object[0]
+            record["v2_object"] = v2_object[0] if v2_object is not None else None
         record["crit_tokens"] = crit_tokens
         record["source"]      = source
         record["notes"]       = notes

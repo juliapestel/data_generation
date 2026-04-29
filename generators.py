@@ -6,13 +6,13 @@ import random
 
 from vocab import (
     V1_VERBS, V2_CHAIN_VERBS, V2_CHAIN_ALLOWED_AFTER, NP1_POOL, NP2_POOL,
-    TYPE3_V2_VERBS, DAT_EMBEDDINGS, OMDAT_EMBEDDINGS, TIME_ADVS,
-    get_compatible_v2s, get_v2s_by_class, get_compatible_obj_v2,
+    TYPE3_V2_VERBS, DAT_EMBEDDINGS, OMDAT_EMBEDDINGS,
+    TIME_ADVS, get_compatible_v2s, get_v2s_by_class, get_compatible_obj_v2,
     has_male_name_adjacency,
 )
 from generator_base import CSDGenerator
  
-
+ 
 class SubordinateGenerator(CSDGenerator):
     """Base generator for subordinate clause constructions (Types 1 and 2).
 
@@ -252,22 +252,25 @@ class Type1Generator(SubordinateGenerator):
     c_type         = 1
     embedding_pool = DAT_EMBEDDINGS
     v1_pool        = V1_VERBS
-    v1_fractions   = {"zien": 0.24, "horen": 0.20, "voelen": 0.16, "laten": 0.20, "helpen": 0.20}
+    v1_fractions   = {"zien": 0.30, "horen": 0.25, "voelen": 0.20, "laten": 0.25}
 
 
 class Type2Generator(SubordinateGenerator):
-    """Type 2 (omdat-clause) generator. laten excluded (causative, Type 1 only).
+    """Type 2 (omdat-clause) generator.
 
-    For 3-NP chains, laten is not in v1_pool, and helpen (benefactive) has no
-    permitted chain continuation under V2_CHAIN_ALLOWED_AFTER. Only perception
-    V1 verbs (zien, horen, voelen) produce valid 3-NP chains, yielding sequences
-    of the form: perception → causative → terminal.
+    laten is included as V1 to provide causative items alongside perception and
+    benefactive items. For 3-NP chains, the causative → perception chain sequence
+    is valid; benefactive V1 remains skipped for n_pairs > 2 due to
+    V2_CHAIN_ALLOWED_AFTER constraints.
     helpen as V1 will always be skipped for n_pairs > 2.
     """
     c_type         = 2
     embedding_pool = OMDAT_EMBEDDINGS
-    v1_pool        = V1_VERBS[:-1]
-    v1_fractions   = {"zien": 0.32, "horen": 0.24, "voelen": 0.20, "helpen": 0.24}
+    v1_pool        = V1_VERBS
+    # laten is included here to satisfy the dataset design requirement that both
+    # Type 1 and Type 2 contain causative V1 items, enabling verb-class
+    # generalisation tests across embedding conjunctions (dat vs. omdat).
+    v1_fractions   = {"zien": 0.35, "horen": 0.25, "voelen": 0.20, "laten": 0.20}
 
 
 class Type1Generator4NP(SubordinateGenerator):
@@ -415,14 +418,23 @@ class Type1Generator4NP(SubordinateGenerator):
 class Type3Generator(CSDGenerator):
     """Type 3 (AcI matrix) generator.
 
-    Sentence template: {NP1} heeft {NP2} {v2_object} {V1} {V2} {time_adv}.
-    V1 always appears in infinitive form (IPP). Only n_pairs=2 is currently
-    supported. All three variants (A, B, C) are always generated because
-    v2_object is always inanimate, so the selectional restriction always applies.
+    Supports two V1 classes:
+      Perception (zien, horen, voelen): template NP1 heeft NP2 OBJ_V2 V1_inf V2_trans time_adv.
+        Variants A, B, C generated. v2_object is always inanimate, so the
+        selectional restriction is always available for B/C.
+      Causative (laten): template NP1 heeft NP2 OBJ_V2 laten V2_transitive time_adv.
+        OBJ_V2 is the direct object of V2; V2 is drawn from TYPE3_V2_VERBS via
+        get_compatible_obj_v2. Variants A, B, C generated; OBJ_V2 (inanimate) cannot
+        be logical subject of laten, so selectional restriction applies for B/C.
+
+    V1 always appears in infinitive form (IPP). Only n_pairs=2 is supported.
     """
     c_type       = 3
-    v1_pool      = V1_VERBS[:3]  # zien, horen, voelen only (perception verbs)
-    v1_fractions = {"zien": 0.40, "horen": 0.40, "voelen": 0.20}
+    v1_pool      = V1_VERBS[:3] + [V1_VERBS[4]]  # zien, horen, voelen, laten
+    # voelen has reduced weight because its use as V1 is restricted to inanimate
+    # NP2, which limits variety. laten weight targets ~25% causative items to
+    # satisfy the dataset design requirement for verb-class generalisation.
+    v1_fractions = {"zien": 0.32, "horen": 0.32, "voelen": 0.12, "laten": 0.24}
 
     def __init__(self):
         verbs = [t for t in self.v1_pool if t[0] in self.v1_fractions]
@@ -442,34 +454,80 @@ class Type3Generator(CSDGenerator):
 
         valid_np2 = [t for t in NP2_POOL if t[3] == "animate" and t[0] != np1[0]]
         np2       = random.choice(valid_np2)
-        v2, v2_class = random.choice(TYPE3_V2_VERBS)
-        obj          = random.choice(get_compatible_obj_v2(v2))
-        time_adv     = random.choice(TIME_ADVS)
+        time_adv  = random.choice(TIME_ADVS)
 
         np_chain = [np1, np2]
-        v_chain  = [(v1_tuple, v1[1], v1_tuple[5]), (None, v2, v2_class)]
         base_id  = f"{n_pairs}np_t{self.c_type}_{item_num:03d}"
-        gram     = f"{np1_form} {aux} {np2[0]} {obj[0]} {v1[1]} {v2} {time_adv}."
-        ungram_a = f"{np1_form} {aux} {np2[0]} {obj[0]} {v2} {v1[1]} {time_adv}."
-        ungram_b = f"{np1_form} {aux} {obj[0]} {np2[0]} {v1[1]} {v2} {time_adv}."
-        ungram_c = f"{np1_form} {aux} {obj[0]} {np2[0]} {v2} {v1[1]} {time_adv}."
 
-        shared = dict(
-            n_pairs=n_pairs, c_type=self.c_type, grammatical=gram,
-            embed="", np_chain=np_chain, v_chain=v_chain,
-            v1_tense="infinitive", source="generated",
-            v2_object=(obj[0], obj[1]),
-        )
-        # Type 3 B/C swap NP2 against obj (not NP1 against NP2), so crit_tokens
-        # for B/C reflect the two positions that changed: NP2 and the v2_object.
-        yield self.build_record(f"{base_id}_A", **shared, v_type="A",
-                                ungrammatical=ungram_a, ungram_source="verb_order", alignment=False,
-                                crit_tokens=[v1[1], v2])
-        yield self.build_record(f"{base_id}_B", **shared, v_type="B",
-                                ungrammatical=ungram_b, ungram_source="selectional_restriction",
-                                alignment=False, crit_tokens=[np2[0], obj[0]],
-                                notes="Type 3 argument structure caveat: do not use for alignment-only analysis without caveat.")
-        yield self.build_record(f"{base_id}_C", **shared, v_type="C",
-                                ungrammatical=ungram_c, ungram_source="selectional_restriction",
-                                alignment=True, crit_tokens=[np2[0], obj[0], v1[1], v2],
-                                notes="Alignment restored by double reversal; selectional restriction still violated. Type 3 Variant C caveat applies.")
+        if v1_tuple[0] == "laten":
+            # Causative laten with transitive V2 and OBJ_V2.
+            # Template: NP1 heeft NP2 OBJ_V2 laten V2_transitive time_adv
+            # OBJ_V2 is the direct object of V2, not of laten.
+            # Selectional restriction: OBJ_V2 (inanimate) cannot be logical subject
+            # of laten, making NP2/OBJ_V2 swap ungrammatical.
+            v2_entry     = random.choice(TYPE3_V2_VERBS)
+            v2, v2_class = v2_entry[0], v2_entry[1]
+            obj          = random.choice(get_compatible_obj_v2(v2))
+
+            v_chain  = [(v1_tuple, v1[1], v1_tuple[5]), (None, v2, v2_class)]
+            gram     = f"{np1_form} {aux} {np2[0]} {obj[0]} {v1[1]} {v2} {time_adv}."
+            ungram_a = f"{np1_form} {aux} {np2[0]} {obj[0]} {v2} {v1[1]} {time_adv}."
+            ungram_b = f"{np1_form} {aux} {obj[0]} {np2[0]} {v1[1]} {v2} {time_adv}."
+            ungram_c = f"{np1_form} {aux} {obj[0]} {np2[0]} {v2} {v1[1]} {time_adv}."
+
+            shared = dict(
+                n_pairs=n_pairs, c_type=self.c_type, grammatical=gram,
+                embed="", np_chain=np_chain, v_chain=v_chain,
+                v1_tense="infinitive", source="generated",
+                v2_object=(obj[0], obj[1]),
+            )
+            yield self.build_record(f"{base_id}_A", **shared, v_type="A",
+                                    ungrammatical=ungram_a,
+                                    ungram_source="verb_order", alignment=False,
+                                    crit_tokens=[v1[1], v2],
+                                    notes="Type 3 causative laten with OBJ_V2.")
+            yield self.build_record(f"{base_id}_B", **shared, v_type="B",
+                                    ungrammatical=ungram_b,
+                                    ungram_source="selectional_restriction",
+                                    alignment=False,
+                                    crit_tokens=[np2[0], obj[0]],
+                                    notes="Type 3 causative laten: OBJ_V2 (inanimate) cannot be "
+                                          "logical subject of laten; selectional restriction violated. "
+                                          "Do not use for alignment-only analysis without caveat.")
+            yield self.build_record(f"{base_id}_C", **shared, v_type="C",
+                                    ungrammatical=ungram_c,
+                                    ungram_source="selectional_restriction",
+                                    alignment=True,
+                                    crit_tokens=[np2[0], obj[0], v1[1], v2],
+                                    notes="Type 3 causative laten: alignment restored by double reversal; "
+                                          "selectional restriction still violated. "
+                                          "Type 3 Variant C caveat applies.")
+        else:
+            # Perception V1 branch — do not change this code
+            v2, v2_class = random.choice(TYPE3_V2_VERBS)
+            obj          = random.choice(get_compatible_obj_v2(v2))
+            v_chain  = [(v1_tuple, v1[1], v1_tuple[5]), (None, v2, v2_class)]
+            gram     = f"{np1_form} {aux} {np2[0]} {obj[0]} {v1[1]} {v2} {time_adv}."
+            ungram_a = f"{np1_form} {aux} {np2[0]} {obj[0]} {v2} {v1[1]} {time_adv}."
+            ungram_b = f"{np1_form} {aux} {obj[0]} {np2[0]} {v1[1]} {v2} {time_adv}."
+            ungram_c = f"{np1_form} {aux} {obj[0]} {np2[0]} {v2} {v1[1]} {time_adv}."
+
+            shared = dict(
+                n_pairs=n_pairs, c_type=self.c_type, grammatical=gram,
+                embed="", np_chain=np_chain, v_chain=v_chain,
+                v1_tense="infinitive", source="generated",
+                v2_object=(obj[0], obj[1]),
+            )
+            # Type 3 B/C swap NP2 against obj (not NP1 against NP2), so crit_tokens
+            # for B/C reflect the two positions that changed: NP2 and the v2_object.
+            yield self.build_record(f"{base_id}_A", **shared, v_type="A",
+                                    ungrammatical=ungram_a, ungram_source="verb_order", alignment=False,
+                                    crit_tokens=[v1[1], v2])
+            yield self.build_record(f"{base_id}_B", **shared, v_type="B",
+                                    ungrammatical=ungram_b, ungram_source="selectional_restriction",
+                                    alignment=False, crit_tokens=[np2[0], obj[0]],
+                                    notes="Type 3 argument structure caveat: do not use for alignment-only analysis without caveat.")
+            yield self.build_record(f"{base_id}_C", **shared, v_type="C",
+                                    ungrammatical=ungram_c, ungram_source="selectional_restriction",
+                                    alignment=True, crit_tokens=[np2[0], obj[0], v1[1], v2],
+                                    notes="Alignment restored by double reversal; selectional restriction still violated. Type 3 Variant C caveat applies.")
