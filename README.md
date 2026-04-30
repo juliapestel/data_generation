@@ -1,14 +1,11 @@
 # CSD Minimal Pairs — Dutch Cross-Serial Dependency Dataset
 
-A controlled minimal pairs dataset for studying cross-serial dependencies (CSDs) in Dutch, designed for mechanistic interpretability analysis of GPT-2 Dutch (Large). The dataset contains 861 records across six conditions, targeting three construction types and three chain lengths.
-
-This repository accompanies the master's thesis *Mechanistic Analysis of Cross-Serial Dependencies in Dutch Language Models* (Julia Pestel, VU Amsterdam / University of Amsterdam, 2026, supervised by Jelke Bloem).
+A controlled minimal pairs dataset for studying cross-serial dependencies (CSDs) in Dutch, designed for mechanistic interpretability analysis of GPT-2 Dutch (Large). The dataset contains 861 records across different conditions, targeting multiple construction types and three chain lengths.
 
 ---
 
 ## Contents
 
-- [Background](#background)
 - [Dataset](#dataset)
 - [Repository structure](#repository-structure)
 - [Reproducing the dataset](#reproducing-the-dataset)
@@ -16,14 +13,7 @@ This repository accompanies the master's thesis *Mechanistic Analysis of Cross-S
 - [Pipeline commands](#pipeline-commands)
 - [Linguistic notes](#linguistic-notes)
 - [Known limitations](#known-limitations)
-- [Citation](#citation)
 - [Licence](#licence)
-
----
-
-## Background
-
-Cross-serial dependencies in Dutch are constructions in which noun phrases and verbs align in a crossing (non-nested) pattern inside verb-final subordinate clauses. They are theoretically significant because they constitute formal evidence that natural language is not context-free (Bresnan et al. 1982; Shieber 1985). Despite this, how transformer language models internally implement cross-serial alignment is not understood. This dataset is designed to support causal mechanistic analysis — specifically activation patching, attention head ablation, and layer-wise logit difference analysis — of GPT-2 Dutch.
 
 ---
 
@@ -47,7 +37,7 @@ Cross-serial dependencies in Dutch are constructions in which noun phrases and v
 
 **Type 2 — *omdat*-clause.** Same verb-final subordinate structure, introduced by *omdat* (because). Tests whether the model's mechanism generalises across embedding conjunctions.
 
-**Type 3 — AcI matrix clause.** Accusativus cum Infinitivo construction. V1 appears in infinitive form (IPP effect). The verb cluster is followed by a time adverb and is therefore **not** sentence-final. See [Known limitations](#known-limitations).
+**Type 3 — AcI matrix clause.** Accusativus cum Infinitivo construction. V1 appears in infinitive form (IPP effect). Directly corresponds to the construction used in BLiMP-NL Phenomenon 21 (Suijkerbuijk et al. 2024), enabling comparison with prior behavioural evaluation results. The verb cluster is followed by a time adverb and is therefore not sentence-final. See [Known limitations](#known-limitations).
 
 ### Variant types
 
