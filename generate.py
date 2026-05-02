@@ -23,8 +23,9 @@ from pathlib import Path
 
 from generators import Type1Generator, Type2Generator, Type3Generator, Type1Generator4NP
 
-ROOT     = Path(__file__).parent
-DATA_DIR = ROOT / "data"
+ROOT          = Path(__file__).parent
+DATA_DIR      = ROOT / "data"
+GENERATED_DIR = DATA_DIR / "generated"
 
 VARIANT_ORDER = {"A": 0, "B": 1, "C": 2, "D1": 3, "D2": 4, "D3": 5}
 
@@ -64,10 +65,10 @@ def generate_condition(gen, n_pairs: int, targets: dict, label: str,
     """
     example_records, item_num, _ = gen.load_examples(n_pairs)
 
-    # Subtract Variant A example records from per-class quotas.
+    # Subtract Variant A example records from per-class quotas
     remaining = dict(targets)
     # Track accepted lemma counts; initialise from example records so that
-    # hand-crafted items count against lemma caps.
+    # hand-crafted items count against lemma caps
     lemma_counts: dict[str, int] = {}
     for rec in example_records:
         if rec.get("v_type") == "A":
@@ -101,7 +102,7 @@ def generate_condition(gen, n_pairs: int, targets: dict, label: str,
 
         # All records in a bundle share the same grammatical item; read V1_class
         # and V1_lemma from the Variant A record, which is always present when
-        # the bundle is non-empty (generate_item yields A before B/C/D variants).
+        # the bundle is non-empty (generate_item yields A before B/C/D variants)
         a_rec = next((r for r in bundle if r.get("v_type") == "A"), None)
         if a_rec is None:
             continue
@@ -113,12 +114,12 @@ def generate_condition(gen, n_pairs: int, targets: dict, label: str,
             discarded_benefactive += 1
             continue
 
-        # Discard if this lemma has reached its per-lemma cap.
+        # Discard if this lemma has reached its per-lemma cap
         if lemma_caps and lemma in lemma_caps:
             if lemma_counts.get(lemma, 0) >= lemma_caps[lemma]:
                 continue
 
-        # Emit this item's bundle only if its class still has remaining quota.
+        # Emit this item's bundle only if its class still has remaining quota
         if remaining.get(cls, 0) <= 0:
             continue
 
@@ -159,7 +160,6 @@ def renumber_records(records: list[dict]) -> list[dict]:
 # ---------------------------------------------------------------------------
 # CSV helpers
 # ---------------------------------------------------------------------------
-
 def _csv_sort_key(record: dict):
     """Sort key: base item prefix, then item number, then variant order."""
     pair_id = record["pair_id"]
@@ -188,16 +188,15 @@ def _record_to_csv_row(record: dict) -> dict:
 # ---------------------------------------------------------------------------
 # Subcommand implementations
 # ---------------------------------------------------------------------------
-
 def cmd_generate(_args):
     ALL_CONDITIONS = [
         # (generator, n_pairs, output_path, targets, label, lemma_caps)
-        (Type1Generator(),    2, DATA_DIR / "type1_2np.jsonl", {"perception": 35, "causative": 35}, "Type1/2np", {"voelen": 8}),
-        (Type1Generator(),    3, DATA_DIR / "type1_3np.jsonl", {"perception": 25, "causative": 20}, "Type1/3np", None),
-        (Type1Generator4NP(), 4, DATA_DIR / "type1_4np.jsonl", {"perception": 20},                  "Type1/4np", None),
-        (Type2Generator(),    2, DATA_DIR / "type2_2np.jsonl", {"perception": 35, "causative": 35}, "Type2/2np", {"voelen": 8}),
-        (Type2Generator(),    3, DATA_DIR / "type2_3np.jsonl", {"perception": 25, "causative": 20}, "Type2/3np", None),
-        (Type3Generator(),    2, DATA_DIR / "type3_2np.jsonl", {"perception": 35, "causative": 35}, "Type3/2np", None),
+        (Type1Generator(),    2, GENERATED_DIR / "type1_2np.jsonl", {"perception": 35, "causative": 35}, "Type1/2np", {"voelen": 8}),
+        (Type1Generator(),    3, GENERATED_DIR / "type1_3np.jsonl", {"perception": 25, "causative": 20}, "Type1/3np", None),
+        (Type1Generator4NP(), 4, GENERATED_DIR / "type1_4np.jsonl", {"perception": 20},                  "Type1/4np", None),
+        (Type2Generator(),    2, GENERATED_DIR / "type2_2np.jsonl", {"perception": 35, "causative": 35}, "Type2/2np", {"voelen": 8}),
+        (Type2Generator(),    3, GENERATED_DIR / "type2_3np.jsonl", {"perception": 25, "causative": 20}, "Type2/3np", None),
+        (Type3Generator(),    2, GENERATED_DIR / "type3_2np.jsonl", {"perception": 35, "causative": 35}, "Type3/2np", None),
     ]
 
     for gen, n_pairs, output_path, targets, label, lemma_caps in ALL_CONDITIONS:
@@ -234,7 +233,7 @@ def cmd_generate(_args):
 def cmd_csv(_args):
     skip_stems = {"dataset", "csd_dataset"}
     jsonl_files = sorted(
-        f for f in DATA_DIR.glob("*.jsonl")
+        f for f in GENERATED_DIR.glob("*.jsonl")
         if f.stem not in skip_stems
     )
     if not jsonl_files:
@@ -271,7 +270,6 @@ def cmd_csv(_args):
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
-
 def main():
     parser = argparse.ArgumentParser(
         description="CSD minimal pairs dataset generator.",

@@ -72,21 +72,22 @@ The benefactive verb *helpen* was considered but excluded (see [Linguistic notes
 ```
 .
 ├── generate.py               # Entry point: generation and CSV export
-├── process.py                # Filter, validate, and merge pipeline
+├── process.py                # Filter and validate pipeline
 ├── merge.py                  # Merge filtered files; add post-processing fields
 ├── generators.py             # Construction-type-specific generator classes
 ├── generator_base.py         # Abstract base class and shared helpers
 ├── vocab.py                  # NP pools, V1/V2 verb inventory, compatibility functions
 ├── data/
 │   ├── examples/             # Hand-crafted reference items from the literature
+│   ├── generated/            # Raw generated files (pre-filtering), one per condition
+│   │   └── type*.jsonl
 │   ├── filtered/
 │   │   ├── csd_dataset.jsonl     # Final merged dataset (861 records)
 │   │   ├── csd_dataset.csv       # Same dataset in CSV format
-│   │   ├── excluded_items.jsonl  # 27 excluded base items with reasons
+│   │   ├── excluded_items.jsonl  # Excluded base items with reasons
 │   │   └── type*_filtered.jsonl  # Per-condition filtered files
-│   ├── review/
-│   │   └── reviews_dataset.xlsx  # Manual review annotations
-│   └── type*.jsonl           # Raw generated files (pre-filtering)
+│   └── review/
+│       └── reviews_dataset.xlsx  # Manual review annotations
 ├── requirements.txt
 └── README.md
 ```
@@ -109,7 +110,7 @@ pip install -r requirements.txt
 python generate.py generate
 ```
 
-Writes six JSONL files to `data/`, one per condition. The generation loop is target-based: it runs until the required number of Variant A records per V1 class is reached, rather than running a fixed number of attempts.
+Writes six JSONL files to `data/generated/`, one per condition. The generation loop is target-based: it runs until the required number of Variant A records per V1 class is reached, rather than running a fixed number of attempts.
 
 ### Step 2 — Export to CSV for review
 

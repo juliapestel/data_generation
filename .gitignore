@@ -2,3 +2,10 @@
 CLAUDE.md
 data/old/
 data/databits/
+
+__pycache__/
+*.pyc
+*.pyo
+
+# Excel temporary lock files
+~$*

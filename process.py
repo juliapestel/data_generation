@@ -17,13 +17,14 @@ try:
 except ImportError:
     openpyxl = None
 
-ROOT         = Path(__file__).parent
-DATA_DIR     = ROOT / "data"
-FILTERED_DIR = DATA_DIR / "filtered"
+ROOT          = Path(__file__).parent
+DATA_DIR      = ROOT / "data"
+GENERATED_DIR = DATA_DIR / "generated"
+FILTERED_DIR  = DATA_DIR / "filtered"
 
 VARIANT_ORDER = {"A": 0, "B": 1, "C": 2, "D1": 3, "D2": 4, "D3": 5}
 
-# Exact mapping from Excel sheet name to source JSONL filename.
+# Exact mapping from Excel sheet name to source JSONL filename
 SHEET_TO_JSONL = {
     "type1_2np": "type1_2np.jsonl",
     "type1_3np": "type1_3np.jsonl",
@@ -43,10 +44,9 @@ MINIMUM_TARGETS = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Shared helpers
-# ---------------------------------------------------------------------------
-
+"""
+HELPERS
+"""
 def _base_item(pair_id: str) -> str:
     return pair_id.rsplit("_", 1)[0]
 
@@ -121,7 +121,7 @@ def _read_sheet_annotations(ws) -> tuple[dict[str, str], dict[str, str]]:
     if header_row is None:
         return {}, {}
 
-    # Build column index from header; handle None cells and strip whitespace.
+    # Build column index from header; handle None cells and strip whitespace
     col_idx: dict[str, int] = {}
     for i, cell in enumerate(header_row):
         if cell is not None:
@@ -159,10 +159,9 @@ def _read_sheet_annotations(ws) -> tuple[dict[str, str], dict[str, str]]:
     return exclude_bases, note_bases
 
 
-# ---------------------------------------------------------------------------
-# filter
-# ---------------------------------------------------------------------------
-
+"""
+FILTER
+"""
 def cmd_filter(args):
     if openpyxl is None:
         sys.exit(
@@ -184,13 +183,13 @@ def cmd_filter(args):
 
     for sheet_name in wb.sheetnames:
         if sheet_name not in SHEET_TO_JSONL:
-            # Non-condition sheets (e.g. Sheet1) are skipped silently.
+            # Non-condition sheets (e.g. Sheet1) are skipped silently
             continue
 
         jsonl_name = SHEET_TO_JSONL[sheet_name]
-        jsonl_path = DATA_DIR / jsonl_name
+        jsonl_path = GENERATED_DIR / jsonl_name
         if not jsonl_path.exists():
-            print(f"Warning: {jsonl_name} not found in data/ — skipping sheet '{sheet_name}'")
+            print(f"Warning: {jsonl_name} not found in data/generated/ — skipping sheet '{sheet_name}'")
             continue
 
         ws = wb[sheet_name]
@@ -198,19 +197,19 @@ def cmd_filter(args):
 
         records = _load_jsonl(jsonl_path)
 
-        # Build index: base_id → list of records (all variants).
+        # Build index: base_id → list of records (all variants)
         base_to_records: dict[str, list[dict]] = {}
         for rec in records:
             base = _base_item(rec["pair_id"])
             base_to_records.setdefault(base, []).append(rec)
 
-        # Apply exclusions — drop entire base items.
+        # Apply exclusions — drop entire base items
         excluded_bases = set(exclude_bases.keys()) & set(base_to_records.keys())
         remaining: list[dict] = []
         for rec in records:
             base = _base_item(rec["pair_id"])
             if base in excluded_bases:
-                # Collect for exclusion log with provenance fields.
+                # Collect for exclusion log with provenance fields
                 log_rec = dict(rec)
                 log_rec["excluded_from"]    = sheet_name
                 log_rec["exclusion_reason"] = exclude_bases[base]["reason"] or ""
@@ -218,7 +217,7 @@ def cmd_filter(args):
             else:
                 remaining.append(rec)
 
-        # Apply note patches — overwrite notes field for every variant.
+        # Apply note patches — overwrite notes field for every variant
         note_patches_applied = 0
         for rec in remaining:
             base = _base_item(rec["pair_id"])
@@ -234,12 +233,12 @@ def cmd_filter(args):
                 if _variant(rec["pair_id"]) == "A":
                     note_patches_applied += 1
 
-        # Renumber and sort.
+        # Renumber and sort
         remaining.sort(key=lambda r: _sort_key(r["pair_id"]))
         remaining = _renumber(remaining)
         remaining.sort(key=lambda r: _sort_key(r["pair_id"]))
 
-        # Summary counts.
+        # Summary counts
         remaining_bases: set[str] = {_base_item(r["pair_id"]) for r in remaining}
         a_by_class: dict[str, int] = {}
         for r in remaining:
@@ -261,7 +260,7 @@ def cmd_filter(args):
 
     wb.close()
 
-    # Write consolidated exclusion log.
+    # Write exclusion log
     all_excluded_records.sort(
         key=lambda r: (r.get("excluded_from", ""), _sort_key(r["pair_id"]))
     )
@@ -270,10 +269,10 @@ def cmd_filter(args):
     print(f"\nExclusion log: {len(all_excluded_records)} records → {excl_path}")
 
 
-# ---------------------------------------------------------------------------
-# validate
-# ---------------------------------------------------------------------------
 
+"""
+VALIDATE DATASET
+"""
 def cmd_validate(_args):
     if not FILTERED_DIR.exists():
         sys.exit(
@@ -295,7 +294,7 @@ def cmd_validate(_args):
 
         a_records = [r for r in records if _variant(r["pair_id"]) == "A"]
 
-        # 1. Variant A counts by class and lemma.
+        # 1. Variant A counts by class and lemma
         a_by_class: dict[str, int] = {}
         a_by_lemma: dict[str, int] = {}
         for r in a_records:
@@ -304,7 +303,7 @@ def cmd_validate(_args):
             a_by_class[cls]   = a_by_class.get(cls, 0) + 1
             a_by_lemma[lemma] = a_by_lemma.get(lemma, 0) + 1
 
-        # 2. Sequential item numbers — print min, max, total; flag gaps.
+        # 2. Sequential item numbers — print min, max, total; flag gaps
         seen_bases: list[str] = []
         seen_set: set[str] = set()
         for r in sorted(records, key=lambda r: _sort_key(r["pair_id"])):
@@ -323,7 +322,7 @@ def cmd_validate(_args):
                 f"total={total}, expected {max_num - min_num + 1} contiguous values"
             )
 
-        # 3. Duplicate grammatical sentences among Variant A.
+        # 3. Duplicate grammatical sentences among Variant A
         gram_seen: set[str] = set()
         dup_grams: list[str] = []
         for r in a_records:
@@ -337,7 +336,7 @@ def cmd_validate(_args):
                 + "; ".join(f'"{s}"' for s in dup_grams[:3])
             )
 
-        # 4. Duplicate pair_ids.
+        # 4. Duplicate pair_ids
         id_counts: dict[str, int] = {}
         for r in records:
             pid = r["pair_id"]
@@ -348,8 +347,8 @@ def cmd_validate(_args):
                 f"Duplicate pair_ids ({len(dup_ids)}): {dup_ids[:5]}"
             )
 
-        # 5. Minimum Variant A targets.
-        # Strip the _filtered suffix to recover the condition key.
+        # 5. Minimum Variant A targets
+        # Strip the _filtered suffix to recover the condition key
         condition = path.stem.removesuffix("_filtered")
         if condition in MINIMUM_TARGETS:
             for cls, min_count in MINIMUM_TARGETS[condition].items():
@@ -380,10 +379,9 @@ def cmd_validate(_args):
     print("All files PASS." if all_pass else "One or more files FAIL — review the issues above.")
 
 
-# ---------------------------------------------------------------------------
-# CLI entry point
-# ---------------------------------------------------------------------------
-
+"""
+CLI ENTRY POINT
+"""
 def main():
     parser = argparse.ArgumentParser(
         description="Post-processing pipeline for CSD minimal pairs dataset.",
@@ -404,7 +402,7 @@ def main():
 
     sub.add_parser(
         "validate",
-        help="Validate *_filtered.jsonl files in data/filtered/ against minimum targets.",
+        help="Validate *_filtered.jsonl files in data/filtered/ .",
     )
 
     args = parser.parse_args()
