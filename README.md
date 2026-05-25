@@ -21,15 +21,18 @@ A controlled minimal pairs dataset for studying cross-serial dependencies (CSDs)
 
 ### Composition
 
+
 | Construction | Chain length | Perception items | Causative items | Base stimuli | Total records |
 |---|---|---|---|---|---|
-| Type 1 (*dat*-clause) | 2-NP | 34 | 32 | 66 | 128 |
-| Type 1 (*dat*-clause) | 3-NP | 23 | 15 | 38 | 158 |
+| Type 1 (*dat*-clause) | 2-NP | 35 | 14 | 49 | 103 |
+| Type 1 (*dat*-clause) | 3-NP | 24 | 8 | 32 | 130 |
 | Type 1 (*dat*-clause) | 4-NP | 20 | — | 20 | 80 |
-| Type 2 (*omdat*-clause) | 2-NP | 31 | 32 | 63 | 125 |
-| Type 2 (*omdat*-clause) | 3-NP | 23 | 17 | 40 | 172 |
-| Type 3 (AcI matrix) | 2-NP | 31 | 35 | 66 | 198 |
-| **Total** | | **162** | **131** | **293** | **861** |
+| Type 2 (*omdat*-clause) | 2-NP | 29 | 15 | 44 | 86 |
+| Type 2 (*omdat*-clause) | 3-NP | 24 | 9 | 33 | 143 |
+| Type 3 (AcI matrix) | 2-NP | 27 | 15 | 42 | 126 |
+| **Total** | | **159** | **61** | **220** | **668** |
+
+> Causative items use a single verb (*laten*); the causative class is intentionally smaller than the perception class and causative results should be read as *laten*-specific rather than as a verb-class generalisation.
 
 ### Construction types
 
@@ -60,10 +63,10 @@ Variant B is only generated when swapping NP1 and NP2 produces a detectably ungr
 
 Two verb classes are included as V1:
 
-- **Perception** (*zien*, *horen*, *voelen*) — the baseline class, canonical in the CSD literature
+- **Perception** (*zien*, *horen*) — the baseline class, canonical in the CSD literature
 - **Causative** (*laten*) — included to test whether the model tracks NP–verb alignment structurally or exploits perception-verb–infinitive bigram frequencies in the training corpus
 
-The benefactive verb *helpen* was considered but excluded (see [Linguistic notes](#linguistic-notes)).
+The perception verb *voelen* and the benefactive verb *helpen* were considered but excluded from the generated items (see [Linguistic notes](#linguistic-notes)).
 
 ---
 
@@ -103,6 +106,8 @@ git clone <repo-url>
 cd <repo-directory>
 pip install -r requirements.txt
 ```
+
+Generation is deterministic: a fixed random seed (`SEED` in `generate.py`) is set before sampling.
 
 ### Step 1 — Generate
 
@@ -206,12 +211,15 @@ Fields marked *(pending)* are present in the schema but currently `null`. They w
 
 ## Linguistic notes
 
-- **V1 inventory:** *zien*, *horen*, *voelen* (perception); *laten* (causative). *helpen* (benefactive) was considered but excluded: it is not part of the formal language theory argument, requires animate NP2 in all cases (preventing Variant B generation via selectional restriction), and cannot appear in 3-NP chains under the current verb-chain transition constraints.
-- **V1 tense** is varied across items for Types 1 and 2 (present and past, approximately 65/35). Type 3 always uses the infinitive form (IPP).
+
+## Linguistic notes
+
+- **V1 inventory:** *zien*, *horen* (perception); *laten* (causative). *voelen* (perception) was considered but excluded: as a verb of tactile perception it is semantically incompatible with the motion and activity V2 verbs that dominate the inventory (e.g. one cannot *feel* a train depart), producing implausible stimuli. *helpen* (benefactive) was also excluded: it is not part of the formal language theory argument, requires animate NP2 in all cases (preventing Variant B generation via selectional restriction), and cannot appear in 3-NP chains under the current verb-chain transition constraints.
+- **V1 tense** is present tense for all Types 1 and 2 items. Type 3 always uses the infinitive form (IPP). (An earlier version varied tense between present and past; this was standardised to present to remove a between-item tense confound.)
 - **NP2–V2 compatibility** is enforced by animacy: animate-subject V2 verbs (*lopen*, *zingen*, etc.) require animate NP2; inanimate-subject V2 verbs (*rijden*, *vertrekken*, etc.) require inanimate NP2.
 - **3-NP verb-chain transitions** are restricted to perception → causative and causative → perception only. Stacked causatives and stacked perception verbs are blocked.
 - **Male proper name adjacency** (e.g. *Jan Piet*) is blocked to avoid misreading as Dutch double-barrelled names.
-- **Hand-crafted items** from Bresnan et al. (1982), Shieber (1985), and Yadav et al. (2025) are included in `data/examples/` and loaded into the dataset alongside generated items. These are identified by the `source` field.
+- **Example items** from academic works Bresnan et al. (1982) and Suijkerbuijk et al. (2024) are included in `data/examples/` and loaded into the dataset alongside generated items. These are identified by the `source` field.
 
 ---
 
@@ -219,7 +227,8 @@ Fields marked *(pending)* are present in the schema but currently `null`. They w
 
 - **Type 3 verb cluster position.** The time adverb following the verb cluster in Type 3 means `crit_token_positions` are mid-sentence rather than sentence-final for all 66 Type 3 items. Positional effects may confound cross-construction comparisons in activation patching experiments. Type 3 analyses should be conducted separately.
 - **BPE splits in Type 3.** All 66 Type 3 items have more BPE tokens than whitespace-separated words, due to named NP1s (*Yolanthe*, *Pepijn*, etc.) and multi-word time adverbs (*afgelopen weekend*). `crit_token_positions` correctly accounts for these splits.
-- **`horen` underrepresented in Type 2 3-NP.** Three out of 40 items use *horen* as V1, due to vocabulary pool size and chain transition constraints.
+- **Single causative verb.** The causative class consists of *laten* only. Causative findings should not be generalised to the causative verb class as a whole.
+- **Small causative cells in 3-NP conditions.** After filtering, the 3-NP causative conditions contain 8 (Type 1) and 9 (Type 2) items and are underpowered; results for these cells should be treated with caution.
 - **NP pair repetition.** With a small NP pool, some NP1+NP2 combinations appear more than once within a condition.
 - **Pending fields.** `bigram_confound`, `grammatical_logprob`, `ungrammatical_logprob`, and `logprob_diff` are currently `null` across all records.
 

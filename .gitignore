@@ -6,6 +6,10 @@ data/databits/
 __pycache__/
 *.pyc
 *.pyo
+.DS_Store
 
 # Excel temporary lock files
 ~$*
+
+review/reviews_dataset1.csv
+review/reviews_dataset2.csv

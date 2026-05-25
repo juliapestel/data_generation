@@ -8,7 +8,6 @@ vocab.py — Controlled lexical resource for CSD minimal pair generation.
 # verb_class encodes the semantic/syntactic type of the matrix verb,
 # which determines construction type compatibility:
 #   "perception"  → Types 1, 2, 3
-#   "benefactive" → Types 1, 2
 #   "causative"   → Types 1
 #
 # IPP (Infinitivus Pro Participio): perception and causative verbs take
@@ -21,9 +20,6 @@ V1_VERBS = [
     # Perception verbs — IPP applies in perfect
     ("zien",   "ziet",   "zag",    "zagen",   "gezien",   "perception"),
     ("horen",  "hoort",  "hoorde", "hoorden", "gehoord",  "perception"),
-    ("voelen", "voelt",  "voelde", "voelden", "gevoeld",  "perception"),
-    # Benefactive verb — no IPP
-    ("helpen", "helpt",  "hielp",  "hielpen", "geholpen", "benefactive"),
     # Causative verb — IPP applies; past participle form is identical
     # to infinitive ("laten"), not "gelaten", in IPP contexts
     ("laten",  "laat",   "liet",   "lieten",  "laten",    "causative"),
@@ -309,14 +305,14 @@ DAT_EMBEDDINGS = [
 ]
 
 OMDAT_EMBEDDINGS = [
-    "Hij schrok omdat",
-    "Ze lachte omdat",
-    "Hij begreep het omdat",
-    "Ze stopte omdat",
-    "Hij wachtte omdat",
-    "Hij vertrok omdat",
-    "Ze bleef staan omdat",
-    "Hij riep omdat",
-    "Ze aarzelde omdat",
-    "Hij keek op omdat",
+    "Hij schrikt omdat", 
+    "Ze lacht omdat",
+    "Hij begrijpt het omdat", 
+    "Ze stopt omdat", 
+    "Hij wacht omdat", 
+    "Hij vertrekt omdat", 
+    "Ze blijft staan omdat",
+    "Hij roept omdat",
+    "Ze aarzelt omdat",
+    "Hij kijkt op omdat", 
 ]

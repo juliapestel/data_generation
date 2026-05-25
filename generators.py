@@ -73,14 +73,7 @@ class SubordinateGenerator(CSDGenerator):
         return random.choice(pool)
 
     def _sample_v_terminal(self, prev_v_lemma: str, np_i: tuple) -> tuple[str, str]:
-        """Return (infinitive, class) for the final verb in the chain (from V2_VERBS).
-        prev_v_lemma: lemma of the immediately preceding verb, used to apply the
-        voelen → change_of_state constraint.
-        """
-        if prev_v_lemma == "voelen":
-            entry = random.choice(get_v2s_by_class(np_i[3], "change_of_state"))
-        else:
-            entry = random.choice(get_compatible_v2s(np_i[3]))
+        entry = random.choice(get_compatible_v2s(np_i[3]))
         return (entry[0], entry[2])
 
     def _sample_v_chain(self, np_i: tuple, prev_v_class: str,
@@ -117,11 +110,8 @@ class SubordinateGenerator(CSDGenerator):
 
     def generate_item(self, n_pairs: int, item_num: int):
         embed    = random.choice(self.embedding_pool)
-        tense    = random.choices(["present", "past"], weights=[65, 35])[0]
-        # For 3-NP+, bias toward plural NP1 to increase the proportion of items
-        # where an agreement violation (number mismatch) is available for Variant B/C.
-        # Plural NP1 entries are weighted 3x relative to singular entries.
-        # This does not guarantee B/C generation but substantially increases coverage.
+        tense    = "present"
+
         if n_pairs > 2:
             np1_weights = [3 if np[1] == "pl" else 1 for np in NP1_POOL]
             np1 = random.choices(NP1_POOL, weights=np1_weights, k=1)[0]
@@ -252,7 +242,7 @@ class Type1Generator(SubordinateGenerator):
     c_type         = 1
     embedding_pool = DAT_EMBEDDINGS
     v1_pool        = V1_VERBS
-    v1_fractions   = {"zien": 0.30, "horen": 0.25, "voelen": 0.20, "laten": 0.25}
+    v1_fractions   = {"zien": 0.40, "horen": 0.35, "laten": 0.25}
 
 
 class Type2Generator(SubordinateGenerator):
@@ -267,10 +257,7 @@ class Type2Generator(SubordinateGenerator):
     c_type         = 2
     embedding_pool = OMDAT_EMBEDDINGS
     v1_pool        = V1_VERBS
-    # laten is included here to satisfy the dataset design requirement that both
-    # Type 1 and Type 2 contain causative V1 items, enabling verb-class
-    # generalisation tests across embedding conjunctions (dat vs. omdat).
-    v1_fractions   = {"zien": 0.35, "horen": 0.25, "voelen": 0.20, "laten": 0.20}
+    v1_fractions   = {"zien": 0.45, "horen": 0.30, "laten": 0.25}
 
 
 class Type1Generator4NP(SubordinateGenerator):
@@ -301,7 +288,7 @@ class Type1Generator4NP(SubordinateGenerator):
             )
 
         embed    = random.choice(self.embedding_pool)
-        tense    = random.choices(["present", "past"], weights=[65, 35])[0]
+        tense    = "present"
         np1_weights = [3 if np[1] == "pl" else 1 for np in NP1_POOL]
         np1      = random.choices(NP1_POOL, weights=np1_weights, k=1)[0]
         v1_tuple = random.choices(self._verbs, weights=self._weights)[0]
@@ -419,7 +406,7 @@ class Type3Generator(CSDGenerator):
     """Type 3 (AcI matrix) generator.
 
     Supports two V1 classes:
-      Perception (zien, horen, voelen): template NP1 heeft NP2 OBJ_V2 V1_inf V2_trans time_adv.
+      Perception (zien, horen): template NP1 heeft NP2 OBJ_V2 V1_inf V2_trans time_adv.
         Variants A, B, C generated. v2_object is always inanimate, so the
         selectional restriction is always available for B/C.
       Causative (laten): template NP1 heeft NP2 OBJ_V2 laten V2_transitive time_adv.
@@ -430,11 +417,8 @@ class Type3Generator(CSDGenerator):
     V1 always appears in infinitive form (IPP). Only n_pairs=2 is supported.
     """
     c_type       = 3
-    v1_pool      = V1_VERBS[:3] + [V1_VERBS[4]]  # zien, horen, voelen, laten
-    # voelen has reduced weight because its use as V1 is restricted to inanimate
-    # NP2, which limits variety. laten weight targets ~25% causative items to
-    # satisfy the dataset design requirement for verb-class generalisation.
-    v1_fractions = {"zien": 0.32, "horen": 0.32, "voelen": 0.12, "laten": 0.24}
+    v1_pool      = [v for v in V1_VERBS if v[0] in ("zien", "horen", "laten")]
+    v1_fractions = {"zien": 0.40, "horen": 0.36, "laten": 0.24}
 
     def __init__(self):
         verbs = [t for t in self.v1_pool if t[0] in self.v1_fractions]

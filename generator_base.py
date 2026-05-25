@@ -136,7 +136,7 @@ class CSDGenerator(ABC):
 
         for i, (_, v_surf, v_cls) in enumerate(v_chain[1:], 2):
             record[f"V{i}"]       = v_surf
-            record[f"V{i}_lemma"] = v_surf
+            record[f"V{i}_surface"] = v_surf
             record[f"V{i}_class"] = v_cls
 
         if c_type == 3:

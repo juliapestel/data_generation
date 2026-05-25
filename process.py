@@ -35,14 +35,13 @@ SHEET_TO_JSONL = {
 }
 
 MINIMUM_TARGETS = {
-    "type1_2np": {"perception": 25, "causative": 25},
-    "type2_2np": {"perception": 25, "causative": 25},
-    "type3_2np": {"perception": 25, "causative": 25},
-    "type1_3np": {"perception": 15, "causative": 10},
-    "type2_3np": {"perception": 15, "causative": 10},
+    "type1_2np": {"perception": 25, "causative": 14},
+    "type2_2np": {"perception": 25, "causative": 14},
+    "type3_2np": {"perception": 25, "causative": 14},
+    "type1_3np": {"perception": 15, "causative": 8},
+    "type2_3np": {"perception": 15, "causative": 8},
     "type1_4np": {"perception": 15},
 }
-
 
 """
 HELPERS
