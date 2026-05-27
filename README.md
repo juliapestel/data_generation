@@ -206,13 +206,12 @@ Fields marked *(pending)* are present in the schema but currently `null`. They w
 | `python process.py filter --excel <path>` | Apply manual review annotations |
 | `python process.py validate` | Validate filtered files |
 | `python merge.py` | Merge, annotate, and export final dataset |
-
+| `python merge.py --to-csv` | jsonl dataset to csv |
 ---
 
 ## Linguistic notes
 
 
-## Linguistic notes
 
 - **V1 inventory:** *zien*, *horen* (perception); *laten* (causative). *voelen* (perception) was considered but excluded: as a verb of tactile perception it is semantically incompatible with the motion and activity V2 verbs that dominate the inventory (e.g. one cannot *feel* a train depart), producing implausible stimuli. *helpen* (benefactive) was also excluded: it is not part of the formal language theory argument, requires animate NP2 in all cases (preventing Variant B generation via selectional restriction), and cannot appear in 3-NP chains under the current verb-chain transition constraints.
 - **V1 tense** is present tense for all Types 1 and 2 items. Type 3 always uses the infinitive form (IPP). (An earlier version varied tense between present and past; this was standardised to present to remove a between-item tense confound.)
