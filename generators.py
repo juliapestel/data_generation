@@ -210,7 +210,7 @@ class SubordinateGenerator(CSDGenerator):
                                           "NP3-V3 alignment preserved. NP1-V1 and NP2-V2 disrupted. "
                                           "Use to probe sensitivity to outermost dependency pair.")
 
-        can_b, ungram_source = self.can_generate_np_swap(np1, np_chain[1])
+        can_b, ungram_source = self.can_generate_np_swap(np1, np_chain[-1])
         if can_b and has_male_name_adjacency(list(reversed(np_chain))):
             can_b = False
         if can_b:

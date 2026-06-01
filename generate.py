@@ -194,12 +194,12 @@ def _record_to_csv_row(record: dict) -> dict:
 def cmd_generate(_args):
     random.seed(SEED)
     ALL_CONDITIONS = [
-        (Type1Generator(),    2, GENERATED_DIR / "type1_2np.jsonl", {"perception": 35, "causative": 15}, "Type1/2np", {"voelen": 8}),
+        # (Type1Generator(),    2, GENERATED_DIR / "type1_2np.jsonl", {"perception": 35, "causative": 15}, "Type1/2np", {"voelen": 8}),
         (Type1Generator(),    3, GENERATED_DIR / "type1_3np.jsonl", {"perception": 25, "causative": 10}, "Type1/3np", None),
-        (Type1Generator4NP(), 4, GENERATED_DIR / "type1_4np.jsonl", {"perception": 20},                  "Type1/4np", None),
-        (Type2Generator(),    2, GENERATED_DIR / "type2_2np.jsonl", {"perception": 35, "causative": 15}, "Type2/2np", {"voelen": 8}),
+        # (Type1Generator4NP(), 4, GENERATED_DIR / "type1_4np.jsonl", {"perception": 20},                  "Type1/4np", None),
+        # (Type2Generator(),    2, GENERATED_DIR / "type2_2np.jsonl", {"perception": 35, "causative": 15}, "Type2/2np", {"voelen": 8}),
         (Type2Generator(),    3, GENERATED_DIR / "type2_3np.jsonl", {"perception": 25, "causative": 10}, "Type2/3np", None),
-        (Type3Generator(),    2, GENERATED_DIR / "type3_2np.jsonl", {"perception": 35, "causative": 15}, "Type3/2np", None),
+        # (Type3Generator(),    2, GENERATED_DIR / "type3_2np.jsonl", {"perception": 35, "causative": 15}, "Type3/2np", None),
     ]
 
     for gen, n_pairs, output_path, targets, label, lemma_caps in ALL_CONDITIONS:

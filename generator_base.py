@@ -73,21 +73,21 @@ class CSDGenerator(ABC):
         return (v1_entry[0], form, v1_entry[5])
 
     @staticmethod
-    def can_generate_np_swap(np1_entry, np2_entry):
+    def can_generate_np_swap(np1_entry, npn_entry):
         """Return (should_generate: bool, ungram_source: str | None).
         Rules:
-          NP2 inanimate                   → True,  'selectional_restriction'
-          NP2 animate, different number  → True,  'agreement_violation'
-          NP2 animate, same number       → False, None
-          NP1 and NP2 have same form     → False, None  (sentences would be identical)
+          NPn inanimate                   → True,  'selectional_restriction'
+          NPn animate, different number  → True,  'agreement_violation'
+          NPn animate, same number       → False, None
+          NP1 and NPn have same form     → False, None  (sentences would be identical)
         """
         np1_form, np1_number, *_ = np1_entry
-        np2_form, np2_number, _, np2_animacy, *__ = np2_entry
-        if np1_form == np2_form:
+        npn_form, npn_number, _, npn_animacy, *__ = npn_entry
+        if np1_form == npn_form:
             return False, None
-        if np2_animacy == "inanimate":
+        if npn_animacy == "inanimate":
             return True, "selectional_restriction"
-        if np2_number != np1_number:
+        if npn_number != np1_number:
             return True, "agreement_violation"
         return False, None
 
