@@ -24,6 +24,7 @@ import argparse
 import csv
 import json
 import sys
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).parent
@@ -77,8 +78,9 @@ def compute_token_fields(record: dict, tokenizer) -> dict:
     crit_positions: list[int] = []
 
     for surface in crit_tokens:
-        # Last occurrence: the critical region is clause-final in Dutch subordinate clauses.
-        char_pos = gram.rfind(surface)
+        # Last whole-word occurrence (avoids matching 'lopen' inside 'afgelopen', etc.).
+        matches = list(re.finditer(rf"\b{re.escape(surface)}\b", gram))
+        char_pos = matches[-1].start() if matches else gram.rfind(surface)
         if char_pos == -1:
             raise ValueError(
                 f"[{pair_id}] Critical token '{surface}' not found "
@@ -387,18 +389,15 @@ def main():
     # ------------------------------------------------------------------
     # Step 4 — Load tokeniser, then insert post-processing fields
     # ------------------------------------------------------------------
-    tok = None
-    if _HAS_TRANSFORMERS:
-        try:
-            print("Loading tokeniser yhavinga/gpt2-large-dutch ...")
-            tok = AutoTokenizer.from_pretrained(
-                "yhavinga/gpt2-large-dutch", use_fast=True
-            )
-            print("Tokeniser loaded.\n")
-        except Exception as exc:
-            print(f"Warning: could not load tokeniser ({exc}). Token fields will be null.\n")
-    else:
-        print("Warning: transformers not installed. Token fields will be null.\n")
+    if not _HAS_TRANSFORMERS:
+        sys.exit("Error: transformers not installed; token fields cannot be computed. "
+                 "Install it or run with an explicit --no-tokeniser flag.")
+    try:
+        print("Loading tokeniser yhavinga/gpt2-large-dutch ...")
+        tok = AutoTokenizer.from_pretrained("yhavinga/gpt2-large-dutch", use_fast=True)
+        print("Tokeniser loaded.\n")
+    except Exception as exc:
+        sys.exit(f"Error: could not load tokeniser ({exc}). Aborting to avoid null token fields.")
 
     all_records = add_post_processing_fields(all_records, annotations=None, tokenizer=tok)
 
@@ -506,10 +505,11 @@ def main():
 
     # No null crit_token_positions (only checked when tokeniser was loaded).
     if tok is not None:
-        null_crit = [r["pair_id"] for r in reloaded if r.get("crit_token_positions") is None]
+        # No null/empty crit_token_positions — must hold unconditionally.
+        null_crit = [r["pair_id"] for r in reloaded
+                    if r.get("crit_token_positions") in (None, [])]
         if null_crit:
-            for pid in null_crit:
-                print(f"FAIL: crit_token_positions is null for {pid}")
+            print(f"FAIL: crit_token_positions null/empty on {len(null_crit)} records: {null_crit[:10]}")
             checks_passed = False
         else:
             print("PASS: crit_token_positions populated on all records")
