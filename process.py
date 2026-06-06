@@ -379,6 +379,137 @@ def cmd_validate(_args):
 
 
 """
+VALIDATE MERGED DATASET
+"""
+def cmd_validate_dataset(_args):
+    """Validate data/filtered/csd_dataset.jsonl for internal consistency.
+
+    Tokeniser-free: all checks operate on fields already present in the file.
+    """
+    dataset_path = FILTERED_DIR / "csd_dataset.jsonl"
+    if not dataset_path.exists():
+        sys.exit(
+            f"Error: {dataset_path} not found. "
+            "Run 'python merge.py' first."
+        )
+
+    records = _load_jsonl(dataset_path)
+    print(f"Loaded {len(records)} records from {dataset_path}\n")
+
+    CORE_KEYS = [
+        "pair_id", "n_pairs", "c_type", "v_type",
+        "grammatical", "ungrammatical",
+        "crit_tokens", "crit_token_positions",
+        "n_tokens_grammatical", "n_tokens_ungrammatical",
+        "full_paradigm",
+    ]
+
+    checks: list[tuple[str, bool, str]] = []  # (label, passed, detail)
+
+    def check(label: str, passed: bool, detail: str = "") -> None:
+        checks.append((label, passed, detail))
+
+    # 1. crit_token_positions: present, non-empty, unique integers, sorted ascending.
+    ctp_failures: list[str] = []
+    for r in records:
+        pid = r["pair_id"]
+        ctp = r.get("crit_token_positions")
+        if not isinstance(ctp, list) or len(ctp) == 0:
+            ctp_failures.append(f"{pid}: missing or empty")
+            continue
+        if not all(isinstance(x, int) for x in ctp):
+            ctp_failures.append(f"{pid}: non-integer element")
+        elif len(ctp) != len(set(ctp)):
+            ctp_failures.append(f"{pid}: duplicate indices {ctp}")
+        elif ctp != sorted(ctp):
+            ctp_failures.append(f"{pid}: not sorted ascending {ctp}")
+    check(
+        "crit_token_positions non-empty, unique ints, sorted",
+        not ctp_failures,
+        f"{len(ctp_failures)} failing records" + (f": {ctp_failures[:3]}" if ctp_failures else ""),
+    )
+
+    # 2. Every index in range [0, n_tokens_grammatical).
+    range_failures: list[str] = []
+    for r in records:
+        pid  = r["pair_id"]
+        ctp  = r.get("crit_token_positions")
+        ntok = r.get("n_tokens_grammatical")
+        if not isinstance(ctp, list) or not isinstance(ntok, int):
+            continue
+        oob = [i for i in ctp if not (0 <= i < ntok)]
+        if oob:
+            range_failures.append(f"{pid}: {oob} out of [0,{ntok})")
+    check(
+        "All crit_token_positions in [0, n_tokens_grammatical)",
+        not range_failures,
+        f"{len(range_failures)} failing records" + (f": {range_failures[:3]}" if range_failures else ""),
+    )
+
+    # 3. len(crit_token_positions) >= len(crit_tokens).
+    len_failures: list[str] = []
+    for r in records:
+        pid = r["pair_id"]
+        ctp = r.get("crit_token_positions")
+        ct  = r.get("crit_tokens")
+        if not isinstance(ctp, list) or not isinstance(ct, list):
+            continue
+        if len(ctp) < len(ct):
+            len_failures.append(f"{pid}: positions={len(ctp)} < tokens={len(ct)}")
+    check(
+        "len(crit_token_positions) >= len(crit_tokens)",
+        not len_failures,
+        f"{len(len_failures)} failing records" + (f": {len_failures[:3]}" if len_failures else ""),
+    )
+
+    # 4. n_tokens_grammatical == n_tokens_ungrammatical.
+    ntok_failures: list[str] = []
+    for r in records:
+        ng = r.get("n_tokens_grammatical")
+        nu = r.get("n_tokens_ungrammatical")
+        if isinstance(ng, int) and isinstance(nu, int) and ng != nu:
+            ntok_failures.append(f"{r['pair_id']}: gram={ng} ungram={nu}")
+    check(
+        "n_tokens_grammatical == n_tokens_ungrammatical",
+        not ntok_failures,
+        f"{len(ntok_failures)} mismatches" + (f": {ntok_failures[:3]}" if ntok_failures else ""),
+    )
+
+    # 5. Core keys present on every record.
+    missing_key_failures: list[str] = []
+    for r in records:
+        missing = [k for k in CORE_KEYS if k not in r]
+        if missing:
+            missing_key_failures.append(f"{r.get('pair_id', '?')}: {missing}")
+    check(
+        "Core keys present on every record",
+        not missing_key_failures,
+        f"{len(missing_key_failures)} failing records" + (f": {missing_key_failures[:3]}" if missing_key_failures else ""),
+    )
+
+    # 6. No duplicate pair_ids.
+    id_counts: dict[str, int] = {}
+    for r in records:
+        pid = r["pair_id"]
+        id_counts[pid] = id_counts.get(pid, 0) + 1
+    dup_ids = [pid for pid, cnt in id_counts.items() if cnt > 1]
+    check(
+        "No duplicate pair_ids",
+        not dup_ids,
+        f"{len(dup_ids)} duplicates" + (f": {dup_ids[:5]}" if dup_ids else ""),
+    )
+
+    overall = all(passed for _, passed, _ in checks)
+    for label, passed, detail in checks:
+        verdict = "PASS" if passed else "FAIL"
+        suffix  = f" — {detail}" if detail and not passed else ""
+        print(f"  [{verdict}] {label}{suffix}")
+
+    print()
+    print("Overall: PASS" if overall else "Overall: FAIL — review the issues above.")
+
+
+"""
 CLI ENTRY POINT
 """
 def main():
@@ -404,12 +535,19 @@ def main():
         help="Validate *_filtered.jsonl files in data/filtered/ .",
     )
 
+    sub.add_parser(
+        "validate-dataset",
+        help="Validate the merged data/filtered/csd_dataset.jsonl for internal consistency.",
+    )
+
     args = parser.parse_args()
 
     if args.command == "filter":
         cmd_filter(args)
     elif args.command == "validate":
         cmd_validate(args)
+    elif args.command == "validate-dataset":
+        cmd_validate_dataset(args)
 
 
 if __name__ == "__main__":

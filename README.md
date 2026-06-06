@@ -1,6 +1,6 @@
 # CSD Minimal Pairs — Dutch Cross-Serial Dependency Dataset
 
-A controlled minimal pairs dataset for studying cross-serial dependencies (CSDs) in Dutch, designed for mechanistic interpretability analysis of GPT-2 Dutch (Large). The dataset contains 861 records across different conditions, targeting multiple construction types and three chain lengths.
+A controlled minimal pairs dataset for studying cross-serial dependencies (CSDs) in Dutch, designed for mechanistic interpretability analysis of GPT-2 Dutch (Large). The dataset contains 690 records across different conditions, targeting multiple construction types and three chain lengths.
 
 ---
 

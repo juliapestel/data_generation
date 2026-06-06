@@ -47,9 +47,11 @@ def compute_token_fields(record: dict, tokenizer) -> dict:
 
     Uses the fast GPT-2 Dutch tokeniser with offset mapping to locate each
     surface form from crit_tokens in the grammatical sentence. The last
-    occurrence of each form is used (the critical region is always clause-final
-    in Dutch subordinate clauses). Returns the zero-based token index of the
-    first BPE subword of each critical surface form.
+    whole-word occurrence of each form is used (the critical region is always
+    clause-final in Dutch subordinate clauses). Returns ALL token indices whose
+    offset spans overlap the full character span of each critical surface form,
+    in left-to-right order. Multi-subword forms (e.g. multi-word NPs, rare verbs
+    split by BPE) therefore produce multiple indices per surface form.
 
     Args:
         record:    one record dict; must contain 'grammatical', 'ungrammatical',
@@ -61,7 +63,7 @@ def compute_token_fields(record: dict, tokenizer) -> dict:
         crit_token_positions (list[int]).
 
     Raises:
-        ValueError if a critical surface form cannot be located in the sentence.
+        ValueError if a critical surface form cannot be located or mapped.
     """
     gram        = record["grammatical"]
     ungram      = record["ungrammatical"]
@@ -80,30 +82,28 @@ def compute_token_fields(record: dict, tokenizer) -> dict:
     for surface in crit_tokens:
         # Last whole-word occurrence (avoids matching 'lopen' inside 'afgelopen', etc.).
         matches = list(re.finditer(rf"\b{re.escape(surface)}\b", gram))
-        char_pos = matches[-1].start() if matches else gram.rfind(surface)
-        if char_pos == -1:
+        if matches:
+            char_start = matches[-1].start()
+            char_end   = matches[-1].end()
+        else:
+            char_start = gram.rfind(surface)
+            char_end   = char_start + len(surface) if char_start != -1 else -1
+        if char_start == -1:
             raise ValueError(
                 f"[{pair_id}] Critical token '{surface}' not found "
                 f"in grammatical sentence: {gram!r}"
             )
-        # Find the token whose offset span starts at char_pos (first BPE subword).
-        tok_idx = None
-        for i, (start, end) in enumerate(offsets):
-            if start == char_pos:
-                tok_idx = i
-                break
-        # Fallback: span that contains char_pos (handles mid-word starts).
-        if tok_idx is None:
-            for i, (start, end) in enumerate(offsets):
-                if start <= char_pos < end:
-                    tok_idx = i
-                    break
-        if tok_idx is None:
+        # Collect every token whose offset span overlaps [char_start, char_end).
+        span_indices = [
+            i for i, (s, e) in enumerate(offsets)
+            if s < char_end and e > char_start
+        ]
+        if not span_indices:
             raise ValueError(
-                f"[{pair_id}] Cannot map '{surface}' (char_pos={char_pos}) "
+                f"[{pair_id}] Cannot map '{surface}' (chars {char_start}–{char_end}) "
                 f"to any token index in: {gram!r}"
             )
-        crit_positions.append(tok_idx)
+        crit_positions.extend(span_indices)
 
     return {
         "n_tokens_grammatical":   n_gram,
